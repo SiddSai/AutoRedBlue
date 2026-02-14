@@ -97,3 +97,6 @@ class BasicAgent():
     def display_graph(self):
         if self.app:
             display(Image(self.app.get_graph().draw_mermaid_png()))
+
+
+##. initial_logic - agent (tools) -  end_tool_calls -> ... 

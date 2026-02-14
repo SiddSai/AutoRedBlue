@@ -9,7 +9,11 @@ from langgraph.prebuilt import ToolNode
 
 from agents.base_agent import BasicAgent
 
-class AttackDesignerAgent(BasicAgent):
+"""
+Checks the attack library csv, navigates github API as well as Semantic
+Scholar API to come up with attack proposals in broad text format (attack proposals)
+to be fed into the attack designer agent 
+"""
+class AttackProposerAgent(BasicAgent):
     def __init__(self, tools: list = None):
         super().__init__(tools=tools)
-    
