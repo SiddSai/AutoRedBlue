@@ -9,3 +9,4 @@ pprintpp
 langgraph
 typing
 grandalf
+pymupdf4llm
