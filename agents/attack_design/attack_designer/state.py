@@ -5,6 +5,6 @@ from langgraph.graph.message import add_messages
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
-    attack_proposals: List(str)
+    attack_proposals: dict
 
 # receives a list of proposals in text format

@@ -146,10 +146,10 @@ def _parse_arxiv_atom(xml_text: str) -> list[dict]:
     return entries
 
 
-def _format_entries(entries: list[dict]) -> str:
+def _format_entries(entries: list[dict], page=1, limit=10) -> str:
     out = ""
     for idx, e in enumerate(entries):
-        out += f"idx. {idx} | title:{e.get('title','')} | id:{e.get('arxiv_id','')} | url:{e.get('abs_url','')}\n"
+        out += f"idx. {idx + (page-1)*limit} | title:{e.get('title','')} | id:{e.get('arxiv_id','')} | url:{e.get('abs_url','')}\n"
     return out
 
 
@@ -159,6 +159,7 @@ def search_arxiv(query:str, page:int = 1, limit:int = 10) -> str:
 
     Args:
         query: Query string (searched across title/abstract/authors).
+        page: Page number for pagination (1-indexed).
         limit: Maximum number of results to return.
 
     Returns:
@@ -181,7 +182,7 @@ def search_arxiv(query:str, page:int = 1, limit:int = 10) -> str:
     entries = _parse_arxiv_atom(rsp.text)
     if not entries:
         return "No matches found. Please try another query."
-    return _format_entries(entries)
+    return _format_entries(entries, page, limit)
 
 
 def _download_pdf(session: Session, url: str, path: str):
