@@ -10,3 +10,5 @@ langgraph
 typing
 grandalf
 pymupdf4llm
+pandas
+scikit-learn

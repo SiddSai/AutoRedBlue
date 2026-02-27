@@ -153,7 +153,7 @@ def _format_entries(entries: list[dict], page=1, limit=10) -> str:
     return out
 
 
-# @tool
+@tool
 def search_arxiv(query:str, page:int = 1, limit:int = 10) -> str:
     """Search arXiv for papers matching a free-text query.
 
@@ -165,7 +165,7 @@ def search_arxiv(query:str, page:int = 1, limit:int = 10) -> str:
     Returns:
         A newline-separated string of results containing title, arXiv id, and abstract URL.
     """
-
+    print(f"arxiv -  searching papers {limit}:{page} with query: {query}")
     with Session() as session:
         rsp = _request_with_retries(
             session,
@@ -222,7 +222,7 @@ def _download_papers(arxiv_ids: list[str], directory: str) -> Generator[tuple[st
                 yield arxiv_id, e
 
 
-# @tool
+@tool
 def download_pdfs(arxiv_ids: list[str]) -> tuple[list[str], str]:
     """Download PDFs for a list of arXiv ids.
 
@@ -234,6 +234,7 @@ def download_pdfs(arxiv_ids: list[str]) -> tuple[list[str], str]:
             - list[str]: ids successfully downloaded
             - str: status log of successes/failures
     """
+    print(f"arxiv -  downloading_pdfs: {arxiv_ids}")
     downloaded: list[str] = []
     status = ""
 
@@ -246,8 +247,8 @@ def download_pdfs(arxiv_ids: list[str]) -> tuple[list[str], str]:
 
     return downloaded, status
 
-# @tool
-def read_pdf(arxiv_id:str) -> str:
+@tool
+def arxiv_read_pdf(arxiv_id:str) -> str:
     """Read PDF for an arXiv id.
 
     Args:
@@ -256,9 +257,13 @@ def read_pdf(arxiv_id:str) -> str:
     Returns:
         A text, markdown-encoded readable version of the pdf
     """
-
+    print(f"arxiv -  reading pdf: {arxiv_id}")
     norm_id = _normalize_arxiv_id(arxiv_id)
-    return pdf_scraper.read_pdf(input_dir=ARXIV_PAPERS_DIR, input_name=norm_id, store_dir=ARXIV_MD_DIR)
+    try:
+        return pdf_scraper.read_pdf(input_dir=ARXIV_PAPERS_DIR, input_name=norm_id, store_dir=ARXIV_MD_DIR)
+
+    except Exception as e:
+        return f"Failed to read this file, check the id and that is given to the correct source. Error: {e}"
 
 # export tools as an object list
-tools = [search_arxiv, download_pdfs, read_pdf]
+tools = [search_arxiv, download_pdfs, arxiv_read_pdf]

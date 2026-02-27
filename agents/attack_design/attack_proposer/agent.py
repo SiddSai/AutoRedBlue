@@ -1,16 +1,12 @@
-from typing import Annotated, Sequence, TypedDict
-from dotenv import load_dotenv
-from langchain_core.messages import BaseMessage, ToolMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
-from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph, START, END 
 from langgraph.prebuilt import ToolNode
 import services.arxiv_toolkit as arxiv
 import services.scholarapi_toolkit as scholar
-from agents.base_agent import BasicAgent
-from state import AgentState
+import services.attack_library.attack_library_toolkit as attack_library
 
+from agents.base_agent import BasicAgent
+from agents.attack_design.attack_proposer.state import AgentState
 """
 Checks the attack library csv, navigates github API as well as Semantic
 Scholar API to come up with attack proposals in broad text format (attack proposals)
@@ -24,8 +20,10 @@ task you are provided with tools for searching and retrieving arxiv and semantic
 as the current implemented attacks in the library. 
 
 IMPORTANT: 
-you should always make the proposal concrete by calling 'push_recommendations', containing the list of ids
+You should always make the proposal concrete by calling 'push_recommendations', containing the list of ids
 for arxiv and semantic scholar resources that were succesfully retrieved. 
+
+Only recommend papers that where succesfully downloaded.
 """
 
 @tool
@@ -41,14 +39,33 @@ def push_recommendations(arxiv_ids:list[str]=None, scholar_ids:list[str]=None):
     """
     return "Recommendations pushed succesfully, task completed!"
 
-tools = [*arxiv.tools, *scholar.tools, push_recommendations]
+tools = [
+    *arxiv.tools,
+    *scholar.tools,
+    *attack_library.tools,
+    push_recommendations
+]
 
 class AttackProposerAgent(BasicAgent):
     def __init__(self):
         super().__init__(tools=tools, system_prompt=system_prompt, state=AgentState)
         # TODO: add START, END nodes as well as a recover_recommendations node
+        # basic LLM call node
+        def recommendations_call(state: AgentState) -> AgentState:
+            recommendations = self.get_recommendations(state)
+            return {
+                "messages": state["messages"],
+                "attack_proposals": recommendations
+            }
 
-    def get_recommendations(self):
+        self.graph.add_node("proposals", recommendations_call)
+
+        self.graph.add_edge(START, "agent")
+        self.graph.add_edge("end_tool_calls", "proposals")
+        self.graph.add_edge("proposals", END)
+
+
+    def get_recommendations(self, state: AgentState):
         # retrieve the recomendations dict from 'messages'
 
         recommendations = {
@@ -56,13 +73,13 @@ class AttackProposerAgent(BasicAgent):
             "scholar_ids": [],
         }
 
-        messages = self.state["messages"]
+        messages = state["messages"]
         for message in messages:
             if hasattr(message, 'tool_calls') and message.tool_calls:
                 for tool_call in message.tool_calls:
                     if tool_call.get('name') == 'push_recommendations':
-                        recommendations["arxiv"] = tool_call.get('args', {}).get('arxiv_ids', [])
-                        recommendations["semantic"] = tool_call.get('args', {}).get('scholar_ids', [])
+                        recommendations["arxiv_ids"] = tool_call.get('args', {}).get('arxiv_ids', [])
+                        recommendations["scholar_ids"] = tool_call.get('args', {}).get('scholar_ids', [])
         
         return recommendations
 

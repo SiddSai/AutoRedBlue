@@ -11,8 +11,11 @@ from langgraph.prebuilt import ToolNode
 from agents.attack_design.attack_designer.agent import AttackDesignerAgent
 from agents.attack_design.attack_proposer.agent import AttackProposerAgent
 
-attack_designer_agent = AttackDesignerAgent().compile_app()
-attack_proposer_agent = AttackProposerAgent().compile_app()
+attack_designer_agent = AttackDesignerAgent()
+attack_designer_agent.compile_app()
+
+attack_proposer_agent = AttackProposerAgent()
+attack_proposer_agent.compile_app()
 
 class RouterState(TypedDict):
     attack_proposals: list(str)

@@ -68,12 +68,13 @@ def _request_with_retries(
 #                     PAPER FETCHING AND RECOMMENDATIONS
 # ============================================================================
 
-# @tool
+@tool
 def find_basis_paper(query:str="LLM prompt inyection") -> str:
     """
     Looks for realted papers in Semantic Scholar based on the input query string,
     it will return a string with paper titles and id's.
     """
+    print(f"scholarapi - finding basis paper with query: {query}")
     papers = None
     with Session() as session:
         rsp = _request_with_retries(
@@ -92,12 +93,13 @@ def find_basis_paper(query:str="LLM prompt inyection") -> str:
     papers = results['data']
     return _print_papers(papers)
 
-# @tool
+@tool
 def find_recommendations(paperId:str) -> str:
     """
     Looks for realted papers to 'paperId' in Semantic Scholar, it will return a string with paper titles and id's
     from which you can further obtain recommendations.
     """
+    print(f"scholarapi - finding recomendations with basis paper id: {paperId}")
     with Session() as session:
         rsp = _request_with_retries(
             session,
@@ -125,12 +127,13 @@ def _print_papers(papers) -> str:
 #                           PAPER EXTRACTION
 # ============================================================================
 
-# @tool
+@tool
 def fetch_papers(paper_ids: list[str]) -> tuple[list[str], str]:
     """
     Receives a list of Semantic Scholar paper ids, fetches the publicly available PDF files whenever
     they are available. Responds with the list of successfully downloaded paper ids and a status log.
     """
+    print(f"scholarapi - fetching papers: {paper_ids}")
     downloaded_papers = []
     status = ""
 

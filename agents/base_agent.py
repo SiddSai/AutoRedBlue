@@ -19,11 +19,11 @@ class AgentState(TypedDict):
 
 class BasicAgent():
     def __init__(self, tools: list = None, state:TypedDict = AgentState(), system_prompt=basic_system_prompt):
-        self.state: state
+        self.state = state
         self.system_prompt = system_prompt
-        self.tools: Optional[list] = None
+        self.tools: Optional[list] = tools
         self.tool_node = None
-        self.graph = StateGraph(AgentState)
+        self.graph = StateGraph(state)
         self.model = ChatOpenAI(model = "gpt-4o")
         self.app = None
 
@@ -38,34 +38,28 @@ class BasicAgent():
         # if tools, create the_tool node and connect to the agent
         if self.tools:
             self.tool_node = ToolNode(tools=self.tools) # premade toolnode from langgraph, pretty handy
+            print("pushed tools: ", self.tools)
             self.graph.add_node("tools", self.tool_node)
-            self.model.bind_tools(self.tools)
-            self.connect_tools()
+            self.model = self.model.bind_tools(self.tools)
+            self._connect_tools()
 
     """
     The following are pre-made methods, don't feel obligated to use them, but I'm 99.99% sure you'll have
     to implement them on the concrete agents
     """
 
-    def connect_tools(self):
+    def _connect_tools(self):
 
-        # Remove existing tool edges if they exist
-        if "use_tool" in self.graph._edges:
-            del self.graph._edges["use_tool"]
-        
-        if "goto_end_tools" in self.graph._edges:
-            del self.graph._edges["goto_end_tools"]
-        
         # after the tool calls end, the "end_tool_calls" node 
         # will serve as a connection to your following sequence of logic
-        self.graph.add_edge("end_tool_calls", lambda x: x)
+        self.graph.add_node("end_tool_calls", lambda x: x)
 
         def switch(state: AgentState) -> str:
             messages = state["messages"]
             last_message = messages[-1]
 
             if not last_message.tool_calls:
-                return "goto_end"
+                return "goto_end_tools"
             else:
                 return "use_tool"
 
@@ -80,19 +74,11 @@ class BasicAgent():
 
         self.graph.add_edge("tools", "agent")
 
-    def update_tools(self, tools):
-
-        if self.tool_node is not None:
-            if "tools" in self.graph.nodes:
-                del self.graph.nodes["tools"]
-        
-        self.tools = tools
-        self.tool_node = ToolNode(tools=self.tools)
-        self.graph.add_node("tools", self.tool_node)
-        self.connect_tools()
-
     def compile_app(self):
         self.app = self.graph.compile()
+
+    def invoke(self, *args):
+        return self.app.invoke(*args)
 
     def display_graph(self):
         if self.app:
