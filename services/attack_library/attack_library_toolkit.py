@@ -205,6 +205,7 @@ def add_attack(
         "success_rate":       str(success_rate),
         "created_at":         datetime.now().isoformat(timespec="seconds"),
     }
+    print(f"attack_library - validating an attack {entry["attack_id"]}")
     _validate(entry)
     _df = pd.concat(
         [_df, pd.DataFrame([{col: entry.get(col, "") for col in SCHEMA}])],
@@ -212,6 +213,7 @@ def add_attack(
     )
     _save()
     _build_index()
+    print(f"attack_library - added an attack {entry["attack_id"]}")
     return entry["attack_id"]
 
 
@@ -232,6 +234,7 @@ def get_attack(attack_id: str) -> str:
     row = _df[_df["attack_id"] == attack_id]
     if row.empty:
         return f"Error: attack_id '{attack_id}' not found."
+    print(f"attack_library - looked up an attack {attack_id}")
     return json.dumps(row.iloc[0].to_dict(), ensure_ascii=False)
 
 
@@ -266,6 +269,7 @@ def search_attacks(query: str, top_k: int = 5) -> str:
     output = results.to_dict(orient="records")
     for r in output:
         r["_similarity"] = round(r["_similarity"], 4)
+    print(f"attack_library - searched for: {query}")
     return json.dumps(output, ensure_ascii=False)
 
 
@@ -338,6 +342,7 @@ def get_top_attacks(k: int = 5) -> str:
         .head(k)
         .to_dict(orient="records")
     )
+    print("attack_library - got top k attacks")
     return json.dumps(results, ensure_ascii=False)
 
 
@@ -369,6 +374,8 @@ def get_top_attacks_with_source(k: int = 5) -> str:
         .head(k)
         .to_dict(orient="records")
     )
+
+    print("attack_library - got top k attacks with source")
     return json.dumps(results, ensure_ascii=False)
 
 @tool
@@ -387,6 +394,7 @@ def get_designer_context(query: str, top_k: int = 3) -> str:
     Returns:
         A formatted multi-line string ready to be inserted into an LLM prompt.
     """
+    print("attack_library - got desogner context")
     attacks = json.loads(search_attacks.invoke({"query": query, "top_k": top_k}))
 
     if not attacks:

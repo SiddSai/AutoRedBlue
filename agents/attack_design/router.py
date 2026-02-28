@@ -18,7 +18,7 @@ attack_proposer_agent = AttackProposerAgent()
 attack_proposer_agent.compile_app()
 
 class RouterState(TypedDict):
-    attack_proposals: list(str)
+    attack_proposals: dict
     done: bool
 
 def run_proposer_agent(state:RouterState):
@@ -32,9 +32,25 @@ def run_proposer_agent(state:RouterState):
     }
 
 def run_designer_agent(state:RouterState):
+
+    # the designer can only really handle 2 papers, truncate recommendations
+    truncated_proposals = state["attack_proposals"]
+    proposals_count = 0
+    proposals_count += len(state["attack_proposals"]["arxiv_ids"])
+    proposals_count += len(state["attack_proposals"]["scholar_ids"])
+
+    if proposals_count > 2:
+        if len(state["attack_proposals"]["scholar_ids"]) > 0:
+            # one of each
+            truncated_proposals["arxiv_ids"] = state["attack_proposals"]["arxiv_ids"][0]
+            truncated_proposals["scholar_ids"] = state["attack_proposals"]["arxiv_ids"][1]
+        else: 
+            truncated_proposals["arxiv_ids"] = state["attack_proposals"]["arxiv_ids"][0:2]
+            truncated_proposals["scholar_ids"] = []
+
     init_state = {
         "messages": [],
-        "attack_proposals": state["attack_proposals"]
+        "attack_proposals": truncated_proposals
     } # init state from the designer agent
     attack_designer_agent.invoke(init_state)
     return {
@@ -48,3 +64,5 @@ router.add_node("designer_agent", run_designer_agent)
 router.add_edge(START, "proposer_agent")
 router.add_edge("proposer_agent", "designer_agent")
 router.add_edge("designer_agent", END)
+
+router_app = router.compile()

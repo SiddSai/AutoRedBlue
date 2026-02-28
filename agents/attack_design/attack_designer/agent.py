@@ -7,6 +7,10 @@ from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph, START, END 
 from langgraph.prebuilt import ToolNode
 
+import services.arxiv_toolkit as arxiv
+import services.scholarapi_toolkit as scholar
+import services.attack_library.attack_library_toolkit as attack_library
+
 from agents.base_agent import BasicAgent
 from agents.attack_design.attack_designer.state import AgentState
 
@@ -17,6 +21,12 @@ them by formating them into the csv library structure.
 
 can also be prompted to refine an attack implementation
 """
+
+tools = [
+    *arxiv.tools,
+    *scholar.tools,
+    *attack_library.tools
+]
 
 def system_prompt(attack_proposals):
     return f"""
@@ -29,23 +39,28 @@ def system_prompt(attack_proposals):
     IMPORTANT: 
     You should always include the resource used ('arxiv' or 'scholar') and the 'source_id' (provided by the proposer agent) used
     for the attack implementation.
+    You should try and come up with a new attack implementation every time that it is possible.
+    Always add your attack implementations using the Attack Library tool 'add_attack'. 
 
     ATTACK PROPOSALS:
     {attack_proposals}
     """
 
 class AttackDesignerAgent(BasicAgent):
-    def __init__(self, tools: list = None):
+    def __init__(self):
         super().__init__(tools=tools, system_prompt=None, state=AgentState)
 
-        def get_proposals( state):
+        def get_proposals(state:AgentState):
             self.system_prompt = system_prompt(state["attack_proposals"])
+            return state
 
         self.graph.add_node("get_proposals", get_proposals)
 
         self.graph.add_edge(START, "get_proposals")
         self.graph.add_edge("get_proposals", "agent")
         self.graph.add_edge("end_tool_calls", END)
+
+
 
 
     

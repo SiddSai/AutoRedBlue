@@ -1,6 +1,7 @@
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END 
 from langgraph.prebuilt import ToolNode
+from numpy import str_
 import services.arxiv_toolkit as arxiv
 import services.scholarapi_toolkit as scholar
 import services.attack_library.attack_library_toolkit as attack_library
@@ -23,17 +24,22 @@ IMPORTANT:
 You should always make the proposal concrete by calling 'push_recommendations', containing the list of ids
 for arxiv and semantic scholar resources that were succesfully retrieved. 
 
+Lookup the current implemented attacks so as to not repeat a previous implementation
+
+Propose at most two resources total.
+
 Only recommend papers that where succesfully downloaded.
 """
 
 @tool
-def push_recommendations(arxiv_ids:list[str]=None, scholar_ids:list[str]=None):
+def push_recommendations(arxiv_ids:list[str]=None, scholar_ids:list[str]=None, notes:str=None):
     """
     Call this tool to make the final decision for paper recommendations
 
     Arguments:
         - arxiv_ids: a list of valid arxiv paper ids or urls
         - scholar_ids: a list of valid semantic scholar api ids
+        - notes: reasonning for the resource choice
     
     Returns a confirmation message
     """
@@ -80,6 +86,7 @@ class AttackProposerAgent(BasicAgent):
                     if tool_call.get('name') == 'push_recommendations':
                         recommendations["arxiv_ids"] = tool_call.get('args', {}).get('arxiv_ids', [])
                         recommendations["scholar_ids"] = tool_call.get('args', {}).get('scholar_ids', [])
+                        recommendations["notes"] = tool_call.get('args', {}).get('notes', [])
         
         return recommendations
 
