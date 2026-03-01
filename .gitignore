@@ -23,6 +23,3 @@ build/
 
 # Local configuration
 *.local
-
-services/arxiv_papers/*
-services/scholarapi_papers/*
