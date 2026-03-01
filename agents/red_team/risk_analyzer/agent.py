@@ -8,6 +8,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 
 from agents.base_agent import BasicAgent
+from agents.red_team.risk_analyzer.state import AgentState
 
 system_prompt = """
 You are an advanced Risk Analyzer AI specializing in identifying and assessing potential
@@ -67,22 +68,37 @@ def format_risks(summary:str, analysis:str, test_case_scope:list[str]):
 
 class RiskAnalysisAgent(BasicAgent):
     def __init__(self):
-        super().__init__(system_prompt=system_prompt, tools=[format_risks])
+        super().__init__(system_prompt=system_prompt, tools=[format_risks], state=AgentState)
 
-        # def get_recommendations(self, state: AgentState):
-        # # retrieve the recomendations dict from 'messages'
-        #     recommendations = {
-        #         "arxiv_ids": [],
-        #         "scholar_ids": [],
-        #     }
+        def format_call(state: AgentState) -> AgentState:
+            format = self.get_format(state)
+            return {
+                "messages": state["messages"],
+                "risks": format
+            }
 
-        #     messages = state["messages"]
-        #     for message in messages:
-        #         if hasattr(message, 'tool_calls') and message.tool_calls:
-        #             for tool_call in message.tool_calls:
-        #                 if tool_call.get('name') == 'push_recommendations':
-        #                     recommendations["arxiv_ids"] = tool_call.get('args', {}).get('arxiv_ids', [])
-        #                     recommendations["scholar_ids"] = tool_call.get('args', {}).get('scholar_ids', [])
-        #                     recommendations["notes"] = tool_call.get('args', {}).get('notes', [])
+
+        self.graph.add_node('get_format', format_call)
+
+        self.graph.add_edge(START, 'agent')
+        self.graph.add_edge('end_tool_calls', 'get_format')
+        self.graph.add_edge('get_format', END)
+
+    def get_format(self, state: AgentState):
+        # retrieve the format_risks args from 'messages'
+            risks = {
+                "summary": "",
+                "analysis": "",
+                "test_case_scope": [],
+            }
+
+            messages = state["messages"]
+            for message in messages:
+                if hasattr(message, 'tool_calls') and message.tool_calls:
+                    for tool_call in message.tool_calls:
+                        if tool_call.get('name') == 'format_risks':
+                            risks["summary"] = tool_call.get('args', {}).get('summary', "")
+                            risks["analysis"] = tool_call.get('args', {}).get('analysis', "")
+                            risks["test_case_scope"] = tool_call.get('args', {}).get('test_case_scope', [])
             
-        #     return recommendations
+            return risks

@@ -18,13 +18,13 @@ class AgentState(TypedDict):
     messages : Annotated[Sequence[BaseMessage], add_messages]
 
 class BasicAgent():
-    def __init__(self, tools: list = None, state:TypedDict = AgentState(), system_prompt=basic_system_prompt):
+    def __init__(self, tools: list = None, state:TypedDict = AgentState(), system_prompt=basic_system_prompt, model=ChatOpenAI(model = "gpt-4o")):
         self.state = state
         self.system_prompt = system_prompt
         self.tools: Optional[list] = tools
         self.tool_node = None
         self.graph = StateGraph(state)
-        self.model = ChatOpenAI(model = "gpt-4o")
+        self.model = model
         self.app = None
 
         # basic LLM call node
