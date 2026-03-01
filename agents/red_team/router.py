@@ -12,10 +12,17 @@ from agents.red_team.risk_analyzer.agent import RiskAnalysisAgent
 from agents.red_team.seed_prompt_generator.agent import SeedPromptGeneratorAgent
 from agents.red_team.strategy_designer.agent import StrategyDesignerAgent
 
-attack_judge_agent = AttackJudgeAgent().compile_app()
-risk_analyzer_agent = RiskAnalysisAgent().compile_app()
-seed_prompt_generator_agent = SeedPromptGeneratorAgent().compile_app()
-strategy_designer_agent = StrategyDesignerAgent().compile_app()
+attack_judge_agent = AttackJudgeAgent()
+attack_judge_agent.compile_app()
+
+risk_analyzer_agent = RiskAnalysisAgent()
+risk_analyzer_agent.compile_app()
+
+seed_prompt_generator_agent = SeedPromptGeneratorAgent()
+seed_prompt_generator_agent.compile_app()
+
+strategy_designer_agent = StrategyDesignerAgent()
+strategy_designer_agent.compile_app()
 
 class RouterState(TypedDict):
     pass
