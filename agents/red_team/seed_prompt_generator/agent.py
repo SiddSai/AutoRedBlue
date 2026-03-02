@@ -50,7 +50,7 @@ def system_prompt(test_requirements, user_examples=None, num_test_cases=5):
 #         instruction to the target” }}
 
 @tool 
-def create_test_case(description:str, expecet_outcome:str, input_data:str):
+def create_test_case(description:str, expected_outcome:str, input_data:str):
     """
     Declare formated test cases
     Inputs:
