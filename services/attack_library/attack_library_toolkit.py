@@ -53,6 +53,8 @@ SCHEMA = [
     "attack_examples",
     "source",
     "source_id",
+    "attempts",
+    "success_count",
     "success_rate",
     "created_at",
 ]
@@ -168,7 +170,6 @@ def add_attack(
     attack_examples: str = "",
     source: str = "",
     source_id: str = "",
-    success_rate: float = 0.0,
 ) -> str:
     """
     Add a new attack strategy to the library and persist it to the CSV.
@@ -185,10 +186,9 @@ def add_attack(
                             (e.g. "persona,roleplay"). Optional.
         attack_examples:    A concrete demonstration of the attack applied
                             to a real objective. Optional.
-        source:             URL of the research paper this attack was discovered from
-        success_rate:       Initial success rate between 0.0 and 1.0.
-                            Defaults to 0.0.
-
+        source:             the name of the platform where the resource was 
+                            published e.g. arxiv, scholar
+        source_id:          id or url for the paper in the specified source
     Returns:
         The assigned attack_id string (e.g. "ATK-019").
     """
@@ -202,7 +202,9 @@ def add_attack(
         "attack_examples":    attack_examples,
         "source":             source,
         "source_id":          source_id,
-        "success_rate":       str(success_rate),
+        "success_rate":       0.0,
+        "attempts":           0,
+        "success_count":      0, 
         "created_at":         datetime.now().isoformat(timespec="seconds"),
     }
     print(f"attack_library - validating an attack {entry["attack_id"]}")
@@ -273,28 +275,38 @@ def search_attacks(query: str, top_k: int = 5) -> str:
     return json.dumps(output, ensure_ascii=False)
 
 
-@tool
-def update_success_rate(attack_id: str, new_rate: float) -> str:
-    """
-    Update the success rate of an attack after the judge has scored a result.
-
-    Call this in the memory update node after each evaluation iteration so
-    the library learns which attacks are most effective over time.
-
-    Args:
-        attack_id: The attack identifier string (e.g. "ATK-003").
-        new_rate:  The new success rate as a float between 0.0 and 1.0.
-
-    Returns:
-        A confirmation string, or an error message if the ID was not found.
-    """
+def update_success_rate(attack_id: str, success: bool) -> str:
     global _df
-    if not 0.0 <= new_rate <= 1.0:
-        return f"Error: new_rate must be in [0.0, 1.0], got {new_rate}."
+
     mask = _df["attack_id"] == attack_id
     if not mask.any():
         return f"Error: attack_id '{attack_id}' not found."
-    _df.loc[mask, "success_rate"] = str(new_rate)
+
+    idx = _df.index[mask][0]
+
+    def _safe_int(val) -> int:
+        try:
+            if val is None:
+                return 0
+            s = str(val).strip()
+            if s == "" or s.lower() == "nan":
+                return 0
+            return int(float(s))
+        except Exception:
+            return 0
+
+    attempts = _safe_int(_df.at[idx, "attempts"])
+    success_count = _safe_int(_df.at[idx, "success_count"])
+
+    attempts += 1
+    if success:
+        success_count += 1
+
+    _df.at[idx, "attempts"] = int(attempts)
+    _df.at[idx, "success_count"] = int(success_count)
+    _df.at[idx, "success_rate"] = float(success_count) / float(attempts)
+
+    new_rate = float(_df.at[idx, "success_rate"])
     _save()
     return f"Updated {attack_id} success_rate to {new_rate}."
 

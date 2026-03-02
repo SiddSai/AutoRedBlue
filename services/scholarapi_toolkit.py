@@ -10,10 +10,12 @@ import time
 from requests import Session
 from typing import Generator, Union
 import urllib3
+from services.pdf_scraper import read_pdf
 urllib3.disable_warnings()
 
 load_dotenv()
-SCHOLAR_PAPERS_DIR = os.getenv("SCHOLAR_PAPERS_DIR")
+SCHOLAR_PAPERS_PDF_DIR = os.getenv("SCHOLAR_PAPERS_PDF_DIR")
+SCHOLAR_PAPERS_MD_DIR = os.getenv("SCHOLAR_PAPERS_MD_DIR")
 RESULT_LIMIT = 10
 
 
@@ -137,7 +139,7 @@ def fetch_papers(paper_ids: list[str]) -> tuple[list[str], str]:
     downloaded_papers = []
     status = ""
 
-    for paper_id, result in _download_papers(paper_ids, directory=SCHOLAR_PAPERS_DIR, user_agent="requests/2.0.0"):
+    for paper_id, result in _download_papers(paper_ids, directory=SCHOLAR_PAPERS_PDF_DIR, user_agent="requests/2.0.0"):
         print("checking paper:", paper_id)
         if isinstance(result, Exception):
             status += f"Failed to download '{paper_id}': {type(result).__name__}: {result}\n"
@@ -227,5 +229,23 @@ def _download_pdf(session: Session, url: str, path: str, user_agent: str = 'requ
         for chunk in response.iter_content(chunk_size=8192):
             f.write(chunk)
 
+#@tool
+def scholar_read_pdf(scholar_id:str) -> str:
+    """Read PDF for a scholar api paper.
+
+    Args:
+        scholar_id: some scholar api id (e.g. "46eea7d651420e60f9b1393e3f5eda14cbff7a2a").
+
+    Returns:
+        A text, markdown-encoded readable version of the pdf
+    """
+    print(f"scholar -  reading pdf: {scholar_id}")
+    try:
+        return read_pdf(input_dir=SCHOLAR_PAPERS_PDF_DIR, input_name=scholar_id, store_dir=SCHOLAR_PAPERS_MD_DIR)
+
+    except Exception as e:
+        return f"Failed to read this file, check the id and that is given to the correct source. Error: {e}"
+
+
 # export toolkit
-tools = [find_basis_paper, find_recommendations, fetch_papers]
+tools = [find_basis_paper, find_recommendations, fetch_papers, scholar_read_pdf]

@@ -154,7 +154,14 @@ class RedTeam(BasicAgent):
         
         def get_data(state):
             # TODO: 
-            # Extract sample data and feed library
+            # Extract sample data and update success_rate
+            # input:
+            # prompt + context
+
+            # output:
+            # (1) Correctness: 0 (unsuccesful) or 1 (successful) under query cost constraints
+            # (2) Costs: completion tokens over all iterations and number of queries
+            # (3) Conversation: Final prompt, expected output, response
             return state
 
         self.graph.add_node("risk_analyzer_agent", run_risk_analyzer_agent)
