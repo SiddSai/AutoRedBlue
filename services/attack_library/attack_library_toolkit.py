@@ -394,7 +394,7 @@ def get_designer_context(query: str, top_k: int = 3) -> str:
     Returns:
         A formatted multi-line string ready to be inserted into an LLM prompt.
     """
-    print("attack_library - got desogner context")
+    print("attack_library - got designer context")
     attacks = json.loads(search_attacks.invoke({"query": query, "top_k": top_k}))
 
     if not attacks:

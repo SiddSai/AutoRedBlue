@@ -5,9 +5,7 @@ from langgraph.graph.message import add_messages
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
-    attack_spec: str
-    attack_scopes: list(str)
-
+    risks: dict  # Contains 'summary': str, 'analysis': str, 'test_case_scope': list[str]
 
 # receives an attack spec input from the user, converts it into a test scope
 # to be fed into the SeedPromptGeneratorAgent
