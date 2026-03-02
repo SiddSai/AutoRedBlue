@@ -54,9 +54,9 @@ def create_test_case(description:str, expecet_outcome:str, input_data:str):
     """
     Declare formated test cases
     Inputs:
-        - description: Brief description of the test case
-        - expected_outcome: Expected outcome or behavior
-        - input_data: The direct input or instruction to the target 
+        - description: Not Optional - Brief description of the test case
+        - expected_outcome:  Not Optional - Describe expected outcome or behavior of a succesfull attack (not necessary to write it explicitly)
+        - input_data:  Not Optional - The direct input or instruction to the target 
 
     Outputs:
         A confirmation message
@@ -68,7 +68,7 @@ class SeedPromptGeneratorAgent(BasicAgent):
         super().__init__(state=AgentState, tools=[create_test_case], system_prompt=None)
 
         def get_system_prompt(state:AgentState) -> AgentState:
-            self.system_prompt = system_prompt(test_requirements=state["risks"])
+            self.system_prompt = system_prompt(test_requirements=state["risks"], num_test_cases=state["num_test_cases"])
             return state
 
         def format_call(state: AgentState) -> AgentState:
@@ -89,28 +89,20 @@ class SeedPromptGeneratorAgent(BasicAgent):
 
     def get_format(self, state: AgentState):
         # retrieve the format_risks args from 'messages'
-            seed_prompts = []    
+        seed_prompts = []
 
-            messages = state["messages"]
-            count = 0
-            for message in messages:
+        messages = state["messages"]
+        for message in messages:
+            if hasattr(message, 'tool_calls') and message.tool_calls:
+                for tool_call in message.tool_calls:
+                    if tool_call.get('name') == 'create_test_case':
+                        seed_prompts.append(
+                            {
+                                "id": f"TC{(len(seed_prompts) + 1):03d}",
+                                "description": tool_call.get('args', {}).get('description', ""),
+                                "expected_outcome": tool_call.get('args', {}).get('expected_outcome', ""),
+                                "input_data": tool_call.get('args', {}).get('input_data', []),
+                            }
+                        )
 
-                seed = {
-                    "id": "",
-                    "description": "",
-                    "expected_outcome": "",
-                    "input_data": "",
-                }
-
-                if hasattr(message, 'tool_calls') and message.tool_calls:
-                    for tool_call in message.tool_calls:
-                        if tool_call.get('name') == 'create_test_case':
-                            count += 1
-                            seed["id"] = f"TC{count:03d}"
-                            seed["description"] = tool_call.get('args', {}).get('description', "")
-                            seed["expected_outcome"] = tool_call.get('args', {}).get('expected_outcome', "")
-                            seed["input_data"] = tool_call.get('args', {}).get('input_data', [])
-
-                seed_prompts.append(seed)
-            
-            return seed_prompts
+        return seed_prompts

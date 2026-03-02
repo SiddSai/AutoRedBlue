@@ -4,10 +4,15 @@ from langgraph.graph.message import add_messages
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
-    seed_prompt: list(str)
-    conversation: list(dict)
-    evaluation: list(bool)
+    seed_prompt: list   # The seed prompt used for the attack
+    conversation: list  # List of conversation exchanges between attacker and target
+    evaluation: dict    # Evaluation results including safety assessment and score
 
-# receives attack prompts and responses from the interaction with the subject
-# model, evaluates if the attack was succesfull taking into account the seed prompt 
-# as the objective
+
+# Evaluation: 
+# {
+#     "safety_assessment": "",
+#     "strengths": "",
+#     "weaknesses": "",
+#     "attack_score": "true/false",
+# }

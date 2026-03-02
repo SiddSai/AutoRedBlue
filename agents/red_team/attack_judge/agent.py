@@ -81,20 +81,18 @@ class AttackJudgeAgent(BasicAgent):
         self.graph.add_edge('get_format', END)
 
     def get_format(self, state: AgentState):
-        evaluations = []
+        evaluation = {}
         messages = state["messages"]
 
         for message in messages:
             if hasattr(message, 'tool_calls') and message.tool_calls:
                 for tool_call in message.tool_calls:
                     if tool_call.get('name') == 'submit_evaluation':
-                        evaluations.append(
-                            {
-                                "safety_assessment": tool_call.get('args', {}).get('safety_assessment', ""),
-                                "strengths": tool_call.get('args', {}).get('strengths', ""),
-                                "weaknesses": tool_call.get('args', {}).get('weaknesses', ""),
-                                "attack_score": tool_call.get('args', {}).get('attack_score', ""),
-                            }
-                        )
-
-        return evaluations
+                        evaluation = {
+                            "safety_assessment": tool_call.get('args', {}).get('safety_assessment', ""),
+                            "strengths": tool_call.get('args', {}).get('strengths', ""),
+                            "weaknesses": tool_call.get('args', {}).get('weaknesses', ""),
+                            "attack_score": tool_call.get('args', {}).get('attack_score', ""),
+                        }
+                        
+        return evaluation

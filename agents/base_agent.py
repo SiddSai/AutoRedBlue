@@ -10,6 +10,8 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 from IPython.display import Image, display
 
+from services.throttle import get_langchain_rate_limiter, throttle
+
 load_dotenv()
 
 basic_system_prompt = "You are an AI assistant, answer the user query to your best abillity"
@@ -18,18 +20,28 @@ class AgentState(TypedDict):
     messages : Annotated[Sequence[BaseMessage], add_messages]
 
 class BasicAgent():
-    def __init__(self, tools: list = None, state:TypedDict = AgentState(), system_prompt=basic_system_prompt, model=ChatOpenAI(model = "gpt-4o")):
+    def __init__(
+        self,
+        tools: list = None, state:TypedDict = AgentState(), system_prompt=basic_system_prompt, model=None):
         self.state = state
         self.system_prompt = system_prompt
         self.tools: Optional[list] = tools
         self.tool_node = None
         self.graph = StateGraph(state)
-        self.model = model
+
+        if model is not None:
+            self.model = model
+        else:
+            rate_limiter = get_langchain_rate_limiter()
+            self.model = ChatOpenAI(model="gpt-4o", rate_limiter=rate_limiter)
+            
         self.app = None
 
         # basic LLM call node
+
         def model_call(state: AgentState) -> AgentState:
             system_prompt = SystemMessage(content=self.system_prompt)
+            throttle()
             response = self.model.invoke([system_prompt] + state["messages"])
             return {"messages": [response]}
 

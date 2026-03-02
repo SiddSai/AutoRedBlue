@@ -1,5 +1,5 @@
 from mimetypes import init
-from typing import TypedDict
+from typing import Annotated, Optional, ParamSpecArgs, Sequence, TypedDict
 from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage, ToolMessage, SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
@@ -7,6 +7,8 @@ from langchain_core.tools import tool
 from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph, START, END 
 from langgraph.prebuilt import ToolNode
+from pprint import pprint
+import time
 from agents.base_agent import BasicAgent
 
 from agents.red_team.risk_analyzer.agent import RiskAnalysisAgent
@@ -34,12 +36,16 @@ strategy_designer_agent.compile_app()
 class RouterState(TypedDict):
     user_input: str             # user request for the attack scope/objective
     risks: dict                 # concrete attack scope/themes/categories/constraints
-    seed_prompts: list(dict)    # concrete attack objectives: input - expected output (success condition)
-    conversations: list(dict)   # tracks the ongoing back and forth between redteam and subject model 
-    scores: list(dict)          # attack success scores per conversation
-    messages: list(dict)        # messages tracked for the internal (subject) model
+    seed_prompts: list          # concrete attack objectives: input - expected output (success condition)
+    conversations: list         # tracks the ongoing back and forth between redteam and subject model 
+    scores: list                # attack success scores per conversation
+    messages: Annotated[        # messages tracked for the internal (subject) model
+        Sequence[BaseMessage],
+        add_messages
+    ]
     current_iter: int           # current attempt of a given test_case
     max_iter: int               # maximum amount of attempts (conversation length)
+    num_test_cases: int         # specified amount of test cases
     current_test_case: int      # test_case counter
 
 def run_risk_analyzer_agent(state: RouterState):
@@ -47,23 +53,31 @@ def run_risk_analyzer_agent(state: RouterState):
         "messages": [("user", state["user_input"])]
     }
     result = risk_analyzer_agent.invoke(init_state)
+    print("risk_analyzer_output: ", result)
     return {"risks": result["risks"]}
 
 def run_seed_prompt_generator_agent(state: RouterState):
     init_state = {
         "messages": [],
-        "risks": state["risks"]
+        "risks": state["risks"],
+        "num_test_cases": state["num_test_cases"]
     }
     result = seed_prompt_generator_agent.invoke(init_state)
-    return {"seed_prompts": result["seed_prompts"]}
+    print("seed_prompts agent output: ")
+    pprint(result["seed_prompts"])
+    return {
+        "seed_prompts": result["seed_prompts"],
+        "conversations": [[] for _ in range(len(result["seed_prompts"]))],
+        "scores": [None for _ in range(len(result["seed_prompts"]))],
+    }
 
 class RedTeam(BasicAgent):
-    # Note: probably don't need to inherit from the base agent or add some 
-    # functionality to ignore the creation of the "agent" node
     def __init__(self, target_model=None): 
-        super().__init__(self, model=target_model, state=RouterState)
+        super().__init__(model=target_model, state=RouterState)
         
         def run_test_case(state): 
+            if int(state["current_iter"]) >= int(state["max_iter"]):
+                return state
 
             current_test_case = state["current_test_case"]
             current_conversation = state["conversations"][current_test_case]
@@ -80,25 +94,27 @@ class RedTeam(BasicAgent):
 
             # attack the model
             attack_message = HumanMessage(content=attack_choice["concrete_attack"])
-            state["messages"].append(attack_message)
-            state["conversation"].append({
+            state["conversations"][current_test_case].append({
                 "attacker": attack_choice["concrete_attack"],
                 "justification": attack_choice["justification"]
             })
-            response = self.model.invoke([self.system_prompt] + state["messages"])
+
+            # state["messages"].append(attack_message)                                  # multi turn
+            # response = self.model.invoke([self.system_prompt] + state["messages"])    
+            response = self.model.invoke([self.system_prompt] + [attack_message])         # single shot
 
             # store response
-            state["messages"].append(response)
-            state["conversation"].append({"target_response": response.content})
+            # state["messages"].append(response)
+            state["conversations"][current_test_case].append({"target_response": response.content})
 
             # incremente iter_count
             state["current_iter"] += 1
 
             return state
-        
+
         def run_evaluation(state):
     
-            current_test_case = state["current_test_case"]
+            current_test_case = int(state["current_test_case"])
             current_conversation = state["conversations"][current_test_case]
             current_seed_prompt = state["seed_prompts"][current_test_case]
 
@@ -113,25 +129,25 @@ class RedTeam(BasicAgent):
 
             return state
 
-        def switch(state) -> str:
-            # determine wether to continue current test_case, move to next test_case, 
-            # or finish execution
+        def advance_state(state):
+            current_test_case = int(state["current_test_case"])
+            current_iter = int(state["current_iter"])
+            max_iter = int(state["max_iter"])
 
-            current_test_case = state["current_test_case"]
-            current_iter = state["current_iter"]
-            max_iter = state["max_iter"]
-            current_test_case_success = state["scores"].get(current_test_case, {}).get("attack_score", False)
+            current_score_obj = state["scores"][current_test_case]
+            current_test_case_success = current_score_obj.get("attack_score", False)
 
-            if current_test_case_success: # success!
-                state["current_test_case"] += 1
-                state["messages"] = [] # clear model
-                state["current_iter"] = 0
-
-            if current_iter > max_iter: # failed for good
-                state["current_test_case"] += 1
+            if current_test_case_success or current_iter >= max_iter:
+                state["current_test_case"] = current_test_case + 1
                 state["messages"] = []
                 state["current_iter"] = 0
 
+            return state
+
+        def switch(state) -> str:
+            # determine wether to continue current test_case, move to next test_case, 
+            # or finish execution
+            print("switch - current_test_case: ", state["current_test_case"], " seed_prompts: ", len(state["seed_prompts"]))
             if state["current_test_case"] >= len(state["seed_prompts"]):
                 return "end_batch"
             return "continue"
@@ -145,15 +161,17 @@ class RedTeam(BasicAgent):
         self.graph.add_node("seed_prompt_generator_agent", run_seed_prompt_generator_agent)
         self.graph.add_node("run_test_case", run_test_case)
         self.graph.add_node("run_evaluation", run_evaluation)
-        self.grapg.add_node("get_data", get_data)
+        self.graph.add_node("advance_state", advance_state)
+        self.graph.add_node("get_data", get_data)
                 
         self.graph.add_edge(START, "risk_analyzer_agent")
         self.graph.add_edge("risk_analyzer_agent", "seed_prompt_generator_agent")
         self.graph.add_edge("seed_prompt_generator_agent", "run_test_case")
         self.graph.add_edge("run_test_case", "run_evaluation")
+        self.graph.add_edge("run_evaluation", "advance_state")
 
         self.graph.add_conditional_edges(
-            "run_evaluation",
+            "advance_state",
             switch,
             {
                 "continue": "run_test_case",
@@ -162,3 +180,5 @@ class RedTeam(BasicAgent):
         )
 
         self.graph.add_edge("get_data", END)
+
+
