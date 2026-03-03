@@ -14,7 +14,9 @@ Schema:
     attack_template    - prompt template with {objective} placeholder
     attack_examples    - one concrete few-shot demonstration
     source             - "arxiv"|"scholar"
-    source_id                 - paper, doc id
+    source_id          - paper, doc id
+    attempts           -
+    success_count      - 
     success_rate       - float 0.0-1.0, updated by the evaluation loop
     created_at         - ISO timestamp, set on insert
 """
@@ -276,7 +278,12 @@ def search_attacks(query: str, top_k: int = 5) -> str:
 
 
 def update_success_rate(attack_id: str, success: bool) -> str:
+    print(f"attack_library - udpating success rate: {attack_id}")
     global _df
+
+    _df["attempts"] = pd.to_numeric(_df["attempts"], errors="coerce").fillna(0).astype(int)
+    _df["success_count"] = pd.to_numeric(_df["success_count"], errors="coerce").fillna(0).astype(int)
+    _df["success_rate"] = pd.to_numeric(_df["success_rate"], errors="coerce").fillna(0.0).astype(float)
 
     mask = _df["attack_id"] == attack_id
     if not mask.any():
@@ -284,29 +291,19 @@ def update_success_rate(attack_id: str, success: bool) -> str:
 
     idx = _df.index[mask][0]
 
-    def _safe_int(val) -> int:
-        try:
-            if val is None:
-                return 0
-            s = str(val).strip()
-            if s == "" or s.lower() == "nan":
-                return 0
-            return int(float(s))
-        except Exception:
-            return 0
-
-    attempts = _safe_int(_df.at[idx, "attempts"])
-    success_count = _safe_int(_df.at[idx, "success_count"])
+    attempts = int(_df.at[idx, "attempts"])
+    success_count = int(_df.at[idx, "success_count"])
 
     attempts += 1
     if success:
         success_count += 1
 
-    _df.at[idx, "attempts"] = int(attempts)
-    _df.at[idx, "success_count"] = int(success_count)
-    _df.at[idx, "success_rate"] = float(success_count) / float(attempts)
+    new_rate = float(success_count) / float(attempts)
 
-    new_rate = float(_df.at[idx, "success_rate"])
+    _df.at[idx, "attempts"] = attempts
+    _df.at[idx, "success_count"] = success_count
+    _df.at[idx, "success_rate"] = new_rate
+
     _save()
     return f"Updated {attack_id} success_rate to {new_rate}."
 
