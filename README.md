@@ -364,7 +364,3 @@ This repository is intended strictly for research and evaluation of AI robustnes
 
 ---
 
-## License
-
-Specify license here (e.g., MIT, Apache 2.0, etc.).
-
