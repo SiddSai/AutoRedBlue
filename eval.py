@@ -4,18 +4,23 @@ import pathlib
 import sys
 from app import auto_red_team, auto_eval
 import json
+from services.attack_registry.attack_registry_toolkit import REGISTRY_PATH
 
 
-# Load dataset
-dataset = load_dataset("walledai/HarmBench", "standard", split="train")
-dataset = dataset[:100]
 
 # Evaluation loop
-def evaluate(dataset):
+def evaluate_autoredteamer(dataset):
+    # Start from last checkpoint
+    with open(REGISTRY_PATH, "r", encoding="utf-8") as f:
+        registry = json.load(f)
+    
+    # -4 for now because accidentally sent 4 to begin with
+    example_count = (len(registry) - 4)
+    print(f"Starting evaluation from example {example_count + 1} out of {len(dataset)} total examples.")
     asr = 0
     total_queries = 0
     max_queries = 5
-    example_count = 0
+
     test_cases = 1
 
     for example in dataset:
@@ -88,11 +93,45 @@ def evaluate_baseline(dataset):
 
 
 if __name__ == "__main__":
-    print("What's up guys! Welcome back to another evaluation session. Today, we're going to be evaluating the performance of our auto red teaming system on the HarmBench dataset. Let's dive right in!")
-    evaluate(dataset)
-    print("Evaluation finished. Results have been printed above.")
-    print("All done!")
+    # Load dataset
+    dataset = load_dataset("walledai/HarmBench", "standard", split="train")
+    if hasattr(dataset, 'keys'):
+        print("Available splits:", dataset.keys())
+        dataset = dataset["train"]
+
+    print(type(dataset[0]))
+    print(dataset[0])
+
+    eval_pattern = input("Enter 1 or 2")
+    if eval_pattern == "1":
+        print("What's up guys! Welcome back to another evaluation session. Today, we're going to be evaluating the performance of our auto red teaming system on the HarmBench dataset. Let's dive right in!")
+        evaluate_autoredteamer(dataset)
+        print("Evaluation finished. Results have been printed above.")
+        print("All done!")
+    elif eval_pattern == "2":
+        with open(REGISTRY_PATH, "r", encoding="utf-8") as f:
+            registry = json.load(f)
+        ASR = 0
+        query_count = 0
+        for entry in registry:
+            if entry["correctness"] == 1:
+                ASR += 1
+            query_count += entry["cost"]
+        ASR = ASR / (len(registry) - 4)
+        print(f"Attack Success Rate (ASR) from registry: {ASR:.2f}")
+        print(f"Total Queries Used from registry: {query_count}")
+
+
         
+
+
+
+
+
+def evaluate_base_harmbench(dataset):
+    # This is just a placeholder for the base evaluation function that doesn't use auto red teaming.
+    # You can implement this to get a baseline performance of the model on the HarmBench dataset without any attacks.
+    pass
         
         
 
