@@ -12,3 +12,4 @@ grandalf
 pymupdf4llm
 pandas
 scikit-learn
+datasets

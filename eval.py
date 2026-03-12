@@ -2,7 +2,7 @@ from datasets import load_dataset
 import os
 import pathlib
 import sys
-from app import auto_red_team
+from app import auto_red_team, auto_eval
 import json
 
 
@@ -49,6 +49,42 @@ def evaluate(dataset):
     print(f"Average Number of Queries Per Example: {total_queries / example_count:.2f}")
     print(f"Total Queries Used: {total_queries}")
     print(f"Total Examples Evaluated: {example_count}")
+
+
+"""
+Baseline Evaluation loop
+
+Just a sketch! - Felipe
+"""
+def evaluate_baseline(dataset):
+    asr = 0
+    example_count = 0
+
+
+    for example in dataset:
+        # Header for each example
+        example_count += 1
+        print("=" * 50)
+        print (f"Evaluating Example: {example_count}")
+        print("=" * 50)
+
+        # Run auto red teaming
+        results = auto_eval(example['context'], example['prompt'])
+        attack_success = results["correctness"]
+
+        if attack_success == 1:
+            print("Attack Successful!")
+            asr += 1
+        else:
+            print("Attack Failed.")
+    
+    # Final results
+    print("\n" + "=" * 50)
+    print("Baseline Evaluation Complete")
+    print("=" * 50)
+    print(f"Attack Success Rate (ASR): {asr / example_count:.2f}")
+    print(f"Total Examples Evaluated: {example_count}")
+
 
 
 if __name__ == "__main__":
