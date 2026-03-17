@@ -1,41 +1,26 @@
 # Base agent class (common-shared functionalities)
 
-from typing import Annotated, Optional, ParamSpecArgs, Sequence, TypedDict
-from dotenv import load_dotenv
-from langchain_core.messages import BaseMessage, ToolMessage, SystemMessage
-from langchain_openai import ChatOpenAI
-from langchain_core.tools import tool
+from typing import Annotated, Optional,Sequence, TypedDict
+from langchain_core.messages import BaseMessage,SystemMessage
 from langgraph.graph.message import add_messages
-from langgraph.graph import StateGraph, START, END 
 from langgraph.prebuilt import ToolNode
-from IPython.display import Image, display
+from services.throttle import throttle
+from services.llm_client import get_client
+from agents.base_graph import BasicGraph
 
-from services.throttle import get_langchain_rate_limiter, throttle
-
-load_dotenv()
 
 basic_system_prompt = "You are an AI assistant, answer the user query to your best abillity"
 
 class AgentState(TypedDict): 
     messages : Annotated[Sequence[BaseMessage], add_messages]
 
-class BasicAgent():
-    def __init__(
-        self,
-        tools: list = None, state:TypedDict = AgentState(), system_prompt=basic_system_prompt, model=None):
-        self.state = state
+class BasicAgent(BasicGraph):
+    def __init__( self, tools: list = None, state:TypedDict = AgentState(),  model_name:str = None, system_prompt=basic_system_prompt):
+        super().__init__(state)
         self.system_prompt = system_prompt
         self.tools: Optional[list] = tools
         self.tool_node = None
-        self.graph = StateGraph(state)
-
-        if model is not None:
-            self.model = model
-        else:
-            rate_limiter = get_langchain_rate_limiter()
-            self.model = ChatOpenAI(model="gpt-4o", rate_limiter=rate_limiter)
-            
-        self.app = None
+        self.model = get_client(model_name)
 
         # basic LLM call node
 
@@ -54,11 +39,6 @@ class BasicAgent():
             self.graph.add_node("tools", self.tool_node)
             self.model = self.model.bind_tools(self.tools)
             self._connect_tools()
-
-    """
-    The following are pre-made methods, don't feel obligated to use them, but I'm 99.99% sure you'll have
-    to implement them on the concrete agents
-    """
 
     def _connect_tools(self):
 
@@ -85,16 +65,5 @@ class BasicAgent():
         )
 
         self.graph.add_edge("tools", "agent")
-
-    def compile_app(self):
-        self.app = self.graph.compile()
-
-    def invoke(self, *args):
-        return self.app.invoke(*args)
-
-    def display_graph(self):
-        if self.app:
-            display(Image(self.app.get_graph().draw_mermaid_png()))
-
 
 ##. initial_logic - agent (tools) -  end_tool_calls -> ... 

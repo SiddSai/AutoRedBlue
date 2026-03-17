@@ -29,8 +29,8 @@ class RouterState(TypedDict):
     ]
 
 class RedTeam(BasicAgent):
-    def __init__(self, target_model=None): 
-        super().__init__(model=target_model, state=RouterState)
+    def __init__(self, target_model_name:str = None): 
+        super().__init__(model_name=target_model_name, state=RouterState)
         
         def run_test_case(state): 
 
