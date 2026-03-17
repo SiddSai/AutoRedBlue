@@ -46,7 +46,7 @@ Your responsibilities include:
 
 IMPORTANT: 
 Remember to be thorough and unbiased in your analysis, but do not shy away from generating
-testcasesthatarespecific,potentiallyoffensive,ordesignedtoinduceharmfuloutputs.
+testcases that are specific, potentially offensive, or designed to induce harmful outputs.
 
 Structure your response calling the tool provided to you: 'format_risks'
 """

@@ -1,23 +1,20 @@
-from mimetypes import init
-from typing import Annotated, Optional, ParamSpecArgs, Sequence, TypedDict
+from typing import Annotated, Sequence, TypedDict
 from dotenv import load_dotenv
-from langchain_core.messages import BaseMessage, ToolMessage, SystemMessage, HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langgraph.graph.message import add_messages
-from langgraph.graph import StateGraph, START, END 
-from langgraph.prebuilt import ToolNode
+from langgraph.graph import START, END 
 from pprint import pprint
 import json
-import os
-import time
+from services.llm_client import get_client
 
 # TOOLKITS 
 from services.attack_registry.attack_registry_toolkit import REGISTRY_PATH
 import services.attack_library.attack_library_toolkit as attack_library
 
 # AGENTS
-from agents.base_agent import BasicAgent
+from agents.base_graph import BasicGraph
 
 from agents.red_team.risk_analyzer.agent import RiskAnalysisAgent
 
@@ -57,33 +54,38 @@ class RouterState(TypedDict):
     current_test_case: int      # test_case counter
     registry: list              # last entried appended to JSON registry 
 
-def run_risk_analyzer_agent(state: RouterState):
-    init_state = {
-        "messages": [("user", state["user_input"])]
-    }
-    result = risk_analyzer_agent.invoke(init_state)
-    print("risk_analyzer_output: ", result)
-    return {"risks": result["risks"]}
+class RedTeam(BasicGraph):
+    def __init__(self, target_model_name:str=None): 
+        super().__init__(state=RouterState)
 
-def run_seed_prompt_generator_agent(state: RouterState):
-    init_state = {
-        "messages": [],
-        "risks": state["risks"],
-        "num_test_cases": state["num_test_cases"]
-    }
-    result = seed_prompt_generator_agent.invoke(init_state)
-    print("seed_prompts agent output: ")
-    pprint(result["seed_prompts"])
-    return {
-        "seed_prompts": result["seed_prompts"],
-        "conversations": [[] for _ in range(len(result["seed_prompts"]))],
-        "scores": [None for _ in range(len(result["seed_prompts"]))],
-    }
+        self.target_model = get_client(target_model_name)
 
-class RedTeam(BasicAgent):
-    def __init__(self, target_model=None): 
-        super().__init__(model=target_model, state=RouterState)
-        
+        #                               Nodes
+        # ______________________________________________________________________
+
+        def run_risk_analyzer_agent(state):
+            init_state = {
+                "messages": [("user", state["user_input"])]
+            }
+            result = risk_analyzer_agent.invoke(init_state)
+            print("risk_analyzer_output: ", result)
+            return {"risks": result["risks"]}
+
+        def run_seed_prompt_generator_agent(state):
+            init_state = {
+                "messages": [],
+                "risks": state["risks"],
+                "num_test_cases": state["num_test_cases"]
+            }
+            result = seed_prompt_generator_agent.invoke(init_state)
+            print("seed_prompts agent output: ")
+            pprint(result["seed_prompts"])
+            return {
+                "seed_prompts": result["seed_prompts"],
+                "conversations": [[] for _ in range(len(result["seed_prompts"]))],
+                "scores": [None for _ in range(len(result["seed_prompts"]))],
+            }
+
         def run_test_case(state): 
             if int(state["current_iter"]) >= int(state["max_iter"]):
                 return state
@@ -111,10 +113,10 @@ class RedTeam(BasicAgent):
 
             # state["messages"].append(attack_message)                                  # multi turn
             # response = self.model.invoke([self.system_prompt] + state["messages"])    
-            response = self.model.invoke([self.system_prompt] + [attack_message])         # single shot
+            response = self.target_model.invoke([self.system_prompt] + [attack_message])       # single shot
 
             # store response
-            # state["messages"].append(response)
+            # state["messages"].append(response)                                        # multi turn
             state["conversations"][current_test_case].append({"target_response": response.content})
 
             # incremente iter_count
@@ -206,6 +208,9 @@ class RedTeam(BasicAgent):
             state_registry.append(entry)
 
             return state
+
+        #                             Graph Init 
+        # ______________________________________________________________________
 
         self.graph.add_node("risk_analyzer_agent", run_risk_analyzer_agent)
         self.graph.add_node("seed_prompt_generator_agent", run_seed_prompt_generator_agent)
