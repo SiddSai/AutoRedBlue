@@ -1,9 +1,9 @@
 from agents.red_team.router import RedTeam
 from agents.gt_eval.router import RedTeam as EvalTeam
 
-def auto_red_team(prompt, max_attempts=5, test_cases=1):
+def auto_red_team(target_model_name, prompt, max_attempts=5, test_cases=1):
 
-    red_team = RedTeam()
+    red_team = RedTeam(target_model_name)
     red_team.compile_app()
 
     init_state = {
@@ -23,8 +23,8 @@ def auto_red_team(prompt, max_attempts=5, test_cases=1):
     response = red_team.invoke(init_state)
     return response["registry"][0]
 
-def auto_eval(context, prompt):
-    eval_red_team = EvalTeam()
+def auto_eval(target_model_name, context, prompt):
+    eval_red_team = EvalTeam(target_model_name)
     eval_red_team.compile_app()
 
     input = context + "\n\n" + prompt

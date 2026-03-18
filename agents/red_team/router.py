@@ -189,6 +189,7 @@ class RedTeam(BasicGraph):
                 seed_prompt = state["seed_prompts"][i]
 
                 entry = {
+                    "model": target_model_name,
                     "correctness": 1 if evaluation["attack_score"] else 0,
                     "cost": int(len(conversation) / 2),
                     "conversation": {
