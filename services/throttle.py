@@ -1,49 +1,29 @@
-# AI generated rate-limiter for API requests
+# rate-limiting for LLM API requests
+from langchain_core.rate_limiters import InMemoryRateLimiter
+# 'tenacity' is a very handy library for managing exponential backoff and other retry wrappers
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+from openai import RateLimitError
 
+LLM_REQUESTS_PER_SECOND = 0.5
+MIN_EXPONENTIAL = 1
+MAX_EXPONENTIAL = 60
+MAX_ATTEMPTS = 6
 
-import os
-import time
-import threading
-
-
-_lock = threading.Lock()
-_last_call_ts = 0.0
-
-
-def _env_float(name: str, default: float) -> float:
-    try:
-        return float(os.getenv(name, default))
-    except Exception:
-        return default
-
-
-def throttle(min_interval_s: float | None = None) -> None:
-    global _last_call_ts
-
-    if min_interval_s is None:
-        min_interval_s = _env_float("LLM_MIN_REQUEST_INTERVAL_S", 1.0)
-
-    if min_interval_s <= 0:
-        return
-
-    with _lock:
-        now = time.time()
-        wait_s = (_last_call_ts + float(min_interval_s)) - now
-        if wait_s > 0:
-            time.sleep(wait_s)
-        _last_call_ts = time.time()
-
-
+# standard langchain limiter
 def get_langchain_rate_limiter(requests_per_second: float | None = None):
-    if requests_per_second is None:
-        requests_per_second = _env_float("LLM_REQUESTS_PER_SECOND", 0.5)
 
-    if requests_per_second <= 0:
-        return None
+    if not requests_per_second:
+        requests_per_second = LLM_REQUESTS_PER_SECOND
 
-    try:
-        from langchain_core.rate_limiters import InMemoryRateLimiter
+    return InMemoryRateLimiter(
+        requests_per_second=float(requests_per_second)
+    )
 
-        return InMemoryRateLimiter(requests_per_second=float(requests_per_second))
-    except Exception:
-        return None
+# exponential backoff on model requests
+@retry(
+    retry=retry_if_exception_type(RateLimitError),
+    wait=wait_exponential(min=MIN_EXPONENTIAL, max=MAX_EXPONENTIAL),
+    stop=stop_after_attempt(MAX_ATTEMPTS)
+)
+def throttled_model_call(model, *args, **kwargs):
+    return model.invoke(*args, **kwargs)

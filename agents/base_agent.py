@@ -4,10 +4,9 @@ from typing import Annotated, Optional,Sequence, TypedDict
 from langchain_core.messages import BaseMessage,SystemMessage
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
-from services.throttle import throttle
+from services.throttle import throttled_model_call
 from services.llm_client import get_client
 from agents.base_graph import BasicGraph
-
 
 basic_system_prompt = "You are an AI assistant, answer the user query to your best abillity"
 
@@ -26,8 +25,7 @@ class BasicAgent(BasicGraph):
 
         def model_call(state: AgentState) -> AgentState:
             system_prompt = SystemMessage(content=self.system_prompt)
-            throttle()
-            response = self.model.invoke([system_prompt] + state["messages"])
+            response = throttled_model_call(self.model, [system_prompt] + state["messages"])
             return {"messages": [response]}
 
         self.graph.add_node("agent", model_call)

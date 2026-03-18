@@ -307,6 +307,17 @@ def update_success_rate(attack_id: str, success: bool) -> str:
     _save()
     return f"Updated {attack_id} success_rate to {new_rate}."
 
+def reset_stats():
+    global _df
+
+    if len(_df) == 0:
+        return "No attacks in library."
+
+    _df["attempts"] = 0
+    _df["success_count"] = 0
+    _df["success_rate"] = 0.0
+    _save()
+    return "Reset attempts, success_count, and success_rate to 0 for all attacks."
 
 # @tool
 # def delete_attack(attack_id: str) -> str:
