@@ -14,8 +14,8 @@ from services.pdf_scraper import read_pdf
 urllib3.disable_warnings()
 
 load_dotenv()
-SCHOLAR_PAPERS_PDF_DIR = os.getenv("SCHOLAR_PAPERS_PDF_DIR")
-SCHOLAR_PAPERS_MD_DIR = os.getenv("SCHOLAR_PAPERS_MD_DIR")
+SCHOLAR_PAPERS_PDF_DIR="services/scholarapi_papers/pdf"
+SCHOLAR_PAPERS_MD_DIR="services/scholarapi_papers/md"
 RESULT_LIMIT = 10
 
 

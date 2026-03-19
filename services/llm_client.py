@@ -1,6 +1,9 @@
 from langchain_openai import ChatOpenAI
 import os
+from dotenv import load_dotenv
 from services.throttle import get_langchain_rate_limiter
+
+load_dotenv()
 
 BASE_URL=os.getenv("OPENAI_API_BASE")
 API_KEY=os.getenv("OPENAI_API_KEY")
